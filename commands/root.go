@@ -22,13 +22,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/alessio/go-plugins-ex/registry"
 )
 
 const progName = "go-plugins-ex"
 
 var (
 	cfgFile    string
-	configDir  string
 	pluginsDir string
 )
 
@@ -54,14 +55,13 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	configDir = ConfigDir()
-	pluginsDir = filepath.Join(configDir, "plugins")
-	configFile := filepath.Join(configDir, "config")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", configFile, "configuratiojn file")
-	rootCmd.PersistentFlags().StringVar(&pluginsDir, "plugins-dir", pluginsDir, "plugins directory")
+	pluginsDir = executableDir()
+	configFile := filepath.Join(userConfigDir(), "config")
 
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", configFile, "configuration file")
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.AddCommand(listCmd, demoCmd)
+	registerModuleCommands()
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -71,7 +71,7 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Search config in home directory with name ".go-plugins-ex" (without extension).
-		viper.AddConfigPath(ConfigDir())
+		viper.AddConfigPath(userConfigDir())
 		viper.SetConfigName("config")
 	}
 
@@ -79,20 +79,46 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		_, _ = fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-	}
-
-	// make sure plugins dir exists
-	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
-		panic(err)
+		_, _ = fmt.Fprintln(os.Stderr, "using config file:", viper.ConfigFileUsed())
 	}
 }
 
-func ConfigDir() string {
+func registerModuleCommands() {
+	if err := registry.LoadFromDir(pluginsDir); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "couldn't load modules from %s: %v\n", pluginsDir, err)
+	}
+
+	for _, name := range registry.Modules() {
+		mod, _ := registry.Lookup(name)
+
+		if mod.Command() == nil {
+			continue
+		}
+
+		println("adding command for ", name)
+		rootCmd.AddCommand(mod.Command())
+	}
+}
+
+func userConfigDir() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		panic(err)
 	}
 
-	return filepath.Join(configDir, progName)
+	configDir = filepath.Join(configDir, progName)
+	if err := os.MkdirAll(configDir, 0644); err != nil {
+		panic(err)
+	}
+
+	return configDir
+}
+
+func executableDir() string {
+	executable, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+
+	return filepath.Dir(executable)
 }

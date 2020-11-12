@@ -12,8 +12,7 @@ modules:
 
 install: modules
 	go install
-	install -d $(PLUGINS_DIR)
-	install plugins/*.so $(PLUGINS_DIR)
+	install plugins/*.so $(shell go env GOPATH)/bin
 
 clean:
 	rm -rf $(CURDIR)/build/
