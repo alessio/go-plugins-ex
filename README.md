@@ -1,5 +1,8 @@
 # go-plugins-ex
 
+
+## Installation
+
 ```
-make install ; mv build/* ~/.config/go-plugins-ex/plugins/fg
+make install
 ```
