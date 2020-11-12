@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/alessio/go-plugins-ex/module"
 )
 
@@ -13,35 +15,47 @@ func init() {
 	log.SetOutput(os.Stderr)
 }
 
-var state *mod
+var (
+	state  mod
+	Loader loader           //nolint: unused
+	_      module.Interface = mod{}
+)
 
-func Module() module.Interface {
-	if state == nil {
-		state = new(mod)
-	}
+type loader string
 
-	return state
-}
+func (loader) Load() module.Interface { return state }
 
 type mod struct{}
 
-func (p *mod) Configure() error {
+func (mod) Configure() error {
 	log.Println("mod is now configured. Ready to start.")
 
 	return nil
 }
 
-func (p *mod) Start() error {
+func (mod) Start() error {
 	log.Println("Start() called")
 
 	return nil
 }
 
-func (p *mod) Stop() error {
+func (mod) Stop() error {
 	log.Println("Stop() called")
 
 	return nil
 }
 
-func (*mod) Name() string        { return "auth" }
-func (*mod) Permissions() string { return "io:r" }
+func (mod) Name() string        { return "auth" }
+func (mod) Permissions() string { return "io:r" }
+func (m mod) Command() *cobra.Command {
+	return &cobra.Command{
+		Use:   m.Name(),
+		Short: `Demo auth command`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SetOut(os.Stdout)
+			cmd.Println("args: ", args)
+
+			return nil
+		},
+	}
+}

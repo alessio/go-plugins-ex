@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/alessio/go-plugins-ex/module"
 )
 
@@ -14,11 +16,17 @@ func init() {
 	log.SetOutput(os.Stderr)
 }
 
-var state *mod
+var (
+	state  *mod
+	Loader loader           //nolint: unused
+	_      module.Interface = &mod{}
+)
 
-func Module() module.Interface {
+type loader string
+
+func (loader) Load() module.Interface {
 	if state == nil {
-		state = new(mod)
+		state = &mod{}
 	}
 
 	return state
@@ -28,16 +36,16 @@ type mod struct {
 	configured bool
 }
 
-func (p *mod) Configure() error {
-	log.Println("mod is now configured. Read to start.")
+func (m *mod) Configure() error {
+	log.Println("mod is now configured. Ready to start.")
 
-	p.configured = true
+	m.configured = true
 
 	return nil
 }
 
-func (p *mod) Start() error {
-	if !p.configured {
+func (m *mod) Start() error {
+	if !m.configured {
 		return ErrNotConfigured
 	}
 
@@ -46,13 +54,26 @@ func (p *mod) Start() error {
 	return nil
 }
 
-func (p *mod) Stop() error {
+func (m *mod) Stop() error {
 	log.Println("Stop() called")
 
 	return nil
 }
 
-func (*mod) Name() string        { return "hello" }
-func (*mod) Permissions() string { return "io:rw]" }
+func (m *mod) Name() string        { return "hello" }
+func (m *mod) Permissions() string { return "io:rw]" }
+func (m *mod) Command() *cobra.Command {
+	return &cobra.Command{
+		Use:   m.Name(),
+		Short: `Demo hello command`,
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SetOut(os.Stdout)
+			cmd.Println("hello ", args[0])
+
+			return nil
+		},
+	}
+}
 
 var ErrNotConfigured = errors.New("module is not configured")
